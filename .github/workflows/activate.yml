@@ -1,0 +1,36 @@
+# BIM9_Connect activation service.
+# Triggered by the request issues the add-in opens; the schedule is a safety
+# net for requests whose run was skipped (concurrency queue, GitHub hiccups).
+name: BIM9 license activation
+
+on:
+  issues:
+    types: [opened, reopened]
+  schedule:
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # licenses.json
+  issues: write     # verdict labels
+
+concurrency:
+  group: bim9-licenses
+  cancel-in-progress: false
+
+jobs:
+  process:
+    if: github.event_name != 'issues' || startsWith(github.event.issue.title, 'BIM9 ')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .github/scripts
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node .github/scripts/activate.mjs
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          LICENSE_SERVICE_KEY: ${{ secrets.LICENSE_SERVICE_KEY }}
